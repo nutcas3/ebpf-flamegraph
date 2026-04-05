@@ -1,0 +1,146 @@
+.PHONY: setup profile-cpu profile-offcpu profile-memory profile-cache profile-all analyze open clean
+
+FLAMEGRAPH_DIR = $(HOME)/FlameGraph
+OUTPUT_DIR = profiling-output
+DURATION = 30
+
+setup:
+	@echo "Setting up profiling environment..."
+	@mkdir -p $(OUTPUT_DIR)
+	@if [ ! -d "$(FLAMEGRAPH_DIR)" ]; then \
+		echo "Cloning FlameGraph tools..."; \
+		git clone https://github.com/brendangregg/FlameGraph.git $(FLAMEGRAPH_DIR); \
+	fi
+	@echo "Environment setup complete"
+
+profile-cpu:
+	@echo "Starting Demo CPU profiling..."
+	@$(MAKE) setup
+	@cat > $(OUTPUT_DIR)/cpu.stocks << 'EOF'
+main.collectMetrics;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+main.collectMetrics;main.getTopIPs;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+main.collectMetrics;main.getSecurityMetrics;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+main.startMetricsServer;main.main;runtime.main
+main.getTopIPs;main.collectMetrics;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+main.getSecurityMetrics;main.collectMetrics;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+main.attachXDP;main.main;runtime.main
+main.attachKprobes;main.main;runtime.main
+main.getNetworkInterface;main.attachXDP;main.main;runtime.main
+EOF
+	@$(FLAMEGRAPH_DIR)/stackcollapse-perf.pl $(OUTPUT_DIR)/cpu.stocks > $(OUTPUT_DIR)/cpu.folded
+	@$(FLAMEGRAPH_DIR)/flamegraph.pl $(OUTPUT_DIR)/cpu.folded > $(OUTPUT_DIR)/cpu-flamegraph.svg
+	@echo "Demo CPU flame graph generated: $(OUTPUT_DIR)/cpu-flamegraph.svg"
+
+profile-offcpu:
+	@echo "Starting Demo Off-CPU profiling..."
+	@$(MAKE) setup
+	@cat > $(OUTPUT_DIR)/offcpu.stacks << 'EOF'
+main.collectMetrics;runtime.mallocgc;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+main.collectMetrics;runtime.mallocgc;main.getTopIPs;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+main.collectMetrics;runtime.mallocgc;main.getSecurityMetrics;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+main.startMetricsServer;runtime.mallocgc;main.main;runtime.main
+EOF
+	@$(FLAMEGRAPH_DIR)/flamegraph.pl --color=io --title="Off-CPU Time" $(OUTPUT_DIR)/offcpu.stacks > $(OUTPUT_DIR)/offcpu-flamegraph.svg
+	@echo "Demo Off-CPU flame graph generated: $(OUTPUT_DIR)/offcpu-flamegraph.svg"
+
+profile-memory:
+	@echo "Starting Demo memory profiling..."
+	@$(MAKE) setup
+	@cat > $(OUTPUT_DIR)/memory.stocks << 'EOF'
+main.collectMetrics;runtime.mallocgc;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+main.collectMetrics;runtime.mallocgc;main.getTopIPs;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+main.collectMetrics;runtime.mallocgc;main.getSecurityMetrics;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+runtime.mallocgc;runtime.main
+EOF
+	@$(FLAMEGRAPH_DIR)/stackcollapse-perf.pl $(OUTPUT_DIR)/memory.stocks > $(OUTPUT_DIR)/memory.folded
+	@$(FLAMEGRAPH_DIR)/flamegraph.pl --color=mem --title="Memory Access" $(OUTPUT_DIR)/memory.folded > $(OUTPUT_DIR)/memory-flamegraph.svg
+	@echo "Demo memory flame graph generated: $(OUTPUT_DIR)/memory-flamegraph.svg"
+
+profile-cache:
+	@echo "Starting Demo cache profiling..."
+	@$(MAKE) setup
+	@cat > $(OUTPUT_DIR)/cache.stocks << 'EOF'
+main.collectMetrics;runtime.mallocgc;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+main.getTopIPs;main.collectMetrics;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+runtime.mallocgc;runtime.main
+EOF
+	@$(FLAMEGRAPH_DIR)/stackcollapse-perf.pl $(OUTPUT_DIR)/memory.stocks > $(OUTPUT_DIR)/memory.folded
+	@$(FLAMEGRAPH_DIR)/flamegraph.pl --color=cache --title="Cache Performance" $(OUTPUT_DIR)/memory.folded > $(OUTPUT_DIR)/cache-flamegraph.svg
+	@echo "Demo cache flame graph generated: $(OUTPUT_DIR)/cache-flamegraph.svg"
+
+profile-all:
+	@echo "Starting comprehensive profiling..."
+	@$(MAKE) setup
+	@$(MAKE) profile-cpu DURATION=$(DURATION)
+	@$(MAKE) profile-offcpu DURATION=$(DURATION)
+	@$(MAKE) profile-memory DURATION=$(DURATION)
+	@$(MAKE) profile-cache DURATION=$(DURATION)
+	@$(MAKE) analyze
+	@$(MAKE) generate-report
+
+analyze:
+	@echo "Analyzing profiling results..."
+	@echo ""
+	@echo "Top 10 CPU consumers:"
+	@if [ -f $(OUTPUT_DIR)/cpu.folded ]; then \
+		head -10 $(OUTPUT_DIR)/cpu.folded | sort -k2 -nr | nl; \
+	else \
+		echo "No CPU profiling data found"; \
+	fi
+	@echo ""
+
+generate-report:
+	@echo "Generating comprehensive performance report..."
+	@echo "# Performance Analysis Report" > $(OUTPUT_DIR)/performance-report.md
+	@echo "" >> $(OUTPUT_DIR)/performance-report.md
+	@echo "## Generated Flame Graphs" >> $(OUTPUT_DIR)/performance-report.md
+	@if [ -f $(OUTPUT_DIR)/cpu-flamegraph.svg ]; then \
+		echo "- [CPU Flame Graph](cpu-flamegraph.svg)" >> $(OUTPUT_DIR)/performance-report.md; \
+	fi
+	@if [ -f $(OUTPUT_DIR)/offcpu-flamegraph.svg ]; then \
+		echo "- [Off-CPU Flame Graph](offcpu-flamegraph.svg)" >> $(OUTPUT_DIR)/performance-report.md; \
+	fi
+	@if [ -f $(OUTPUT_DIR)/memory-flamegraph.svg ]; then \
+		echo "- [Memory Flame Graph](memory-flamegraph.svg)" >> $(OUTPUT_DIR)/performance-report.md; \
+	fi
+	@if [ -f $(OUTPUT_DIR)/cache-flamegraph.svg ]; then \
+		echo "- [Cache Flame Graph](cache-flamegraph.svg)" >> $(OUTPUT_DIR)/performance-report.md; \
+	fi
+	@echo "Report generated: $(OUTPUT_DIR)/performance-report.md"
+
+open:
+	@echo "Opening profiling results..."
+	@if command -v open >/dev/null 2>&1; then \
+		open $(OUTPUT_DIR)/cpu-flamegraph.svg 2>/dev/null || true; \
+	else \
+		echo "Results available in: $(OUTPUT_DIR)"; \
+		ls -la $(OUTPUT_DIR)/*.svg 2>/dev/null || echo "No SVG files found"; \
+	fi
+
+clean:
+	@echo "Cleaning profiling output..."
+	@rm -rf $(OUTPUT_DIR)
+	@echo "Clean complete"
+
+help:
+	@echo "Advanced Performance Profiling Suite"
+	@echo "====================================="
+	@echo ""
+	@echo "Profiling Commands:"
+	@echo "  setup              - Setup profiling environment"
+	@echo "  profile-cpu        - CPU profiling"
+	@echo "  profile-offcpu     - Off-CPU profiling"
+	@echo "  profile-memory      - Memory profiling"
+	@echo "  profile-cache       - Cache profiling"
+	@echo "  profile-all         - All profiling types"
+	@echo ""
+	@echo "Analysis Commands:"
+	@echo "  analyze            - Analyze profiling results"
+	@echo "  open               - Open results in browser"
+	@echo "  generate-report    - Generate comprehensive report"
+	@echo ""
+	@echo "Management:"
+	@echo "  clean              - Clean profiling output"
+	@echo "  help               - Show this help"
+
+.DEFAULT_GOAL := help

@@ -1,0 +1,266 @@
+# Makefile for Docker eBPF Operations
+# Handles all Docker-related eBPF operations
+
+.PHONY: help build run stop clean logs status demo monitor security advanced
+
+# Variables
+DOCKER_IMAGE = ebpf-demo
+DOCKER_TAG = latest
+DOCKERFILE = Dockerfile.ebpf
+COMPOSE_FILE = docker-compose.ebpf.yml
+NETWORK_MODE = host
+
+# Colors
+RED := \033[0;31m
+GREEN := \033[0;32m
+YELLOW := \033[1;33m
+BLUE := \033[0;34m
+NC := \033[0m
+
+# Help
+help:
+	@echo "🐳 Docker eBPF Makefile"
+	@echo "======================"
+	@echo ""
+	@echo "Build Commands:"
+	@echo "  build              - Build eBPF Docker image"
+	@echo "  build-builder      - Build builder stage only"
+	@echo "  build-runtime      - Build runtime stage only"
+	@echo ""
+	@echo "Run Commands:"
+	@echo "  run                - Run eBPF demo (default: advanced)"
+	@echo "  monitor            - Run network monitoring"
+	@echo "  security           - Run security monitoring"
+	@echo "  advanced           - Run advanced monitoring with API"
+	@echo "  demo               - Run full demo with traffic"
+	@echo ""
+	@echo "Management:"
+	@echo "  stop               - Stop all services"
+	@echo "  logs [service]     - Show logs"
+	@echo "  status             - Show service status"
+	@echo "  clean              - Clean Docker resources"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make build && make run"
+	@echo "  make monitor"
+	@echo "  make demo"
+	@echo "  make logs advanced"
+
+# Check Docker availability
+check-docker:
+	@if ! command -v docker >/dev/null 2>&1; then \
+		echo "$(RED)❌ Docker not found. Please install Docker first.$(NC)"; \
+		exit 1; \
+	fi
+	@if ! docker info >/dev/null 2>&1; then \
+		echo "$(RED)❌ Docker daemon not running. Please start Docker.$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)✅ Docker is available and running$(NC)"
+
+# Build eBPF Docker image
+build: check-docker
+	@echo "$(BLUE)🔨 Building eBPF Docker image...$(NC)"
+	@docker build -f $(DOCKERFILE) --target ebpf-builder -t $(DOCKER_IMAGE):builder .
+	@docker build -f $(DOCKERFILE) --target ebpf-runtime -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
+	@echo "$(GREEN)✅ Docker images built successfully$(NC)"
+
+# Build builder stage only
+build-builder: check-docker
+	@echo "$(BLUE)🔨 Building eBPF builder stage...$(NC)"
+	@docker build -f $(DOCKERFILE) --target ebpf-builder -t $(DOCKER_IMAGE):builder .
+	@echo "$(GREEN)✅ Builder image built$(NC)"
+
+# Build runtime stage only
+build-runtime: check-docker
+	@echo "$(BLUE)🔨 Building eBPF runtime stage...$(NC)"
+	@docker build -f $(DOCKERFILE) --target ebpf-runtime -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
+	@echo "$(GREEN)✅ Runtime image built$(NC)"
+
+# Run eBPF demo (default advanced)
+run: check-docker
+	@if ! docker image inspect $(DOCKER_IMAGE):$(DOCKER_TAG) >/dev/null 2>&1; then \
+		echo "$(YELLOW)📦 Building Docker image first...$(NC)"; \
+		$(MAKE) build; \
+	fi
+	@echo "$(BLUE)🚀 Starting eBPF advanced demo...$(NC)"
+	@docker run --rm -it --name ebpf-advanced \
+		--privileged \
+		--net=$(NETWORK_MODE) \
+		-v /sys/kernel/debug:/sys/kernel/debug:ro \
+		-v /lib/modules:/lib/modules:ro \
+		-v /usr/src:/usr/src:ro \
+		-p 8080:8080 \
+		$(DOCKER_IMAGE):$(DOCKER_TAG) \
+		./cmd/advanced/advanced-ebpf
+
+# Run network monitoring
+monitor: check-docker
+	@if ! docker image inspect $(DOCKER_IMAGE):$(DOCKER_TAG) >/dev/null 2>&1; then \
+		echo "$(YELLOW)📦 Building Docker image first...$(NC)"; \
+		$(MAKE) build; \
+	fi
+	@echo "$(BLUE)🚀 Starting eBPF network monitoring...$(NC)"
+	@docker run --rm -it --name ebpf-monitor \
+		--privileged \
+		--net=$(NETWORK_MODE) \
+		-v /sys/kernel/debug:/sys/kernel/debug:ro \
+		-v /lib/modules:/lib/modules:ro \
+		-v /usr/src:/usr/src:ro \
+		$(DOCKER_IMAGE):$(DOCKER_TAG) \
+		./ebpf-demo monitor
+
+# Run security monitoring
+security: check-docker
+	@if ! docker image inspect $(DOCKER_IMAGE):$(DOCKER_TAG) >/dev/null 2>&1; then \
+		echo "$(YELLOW)📦 Building Docker image first...$(NC)"; \
+		$(MAKE) build; \
+	fi
+	@echo "$(BLUE)🚀 Starting eBPF security monitoring...$(NC)"
+	@docker run --rm -it --name ebpf-security \
+		--privileged \
+		--net=$(NETWORK_MODE) \
+		-v /sys/kernel/debug:/sys/kernel/debug:ro \
+		-v /lib/modules:/lib/modules:ro \
+		-v /usr/src:/usr/src:ro \
+		$(DOCKER_IMAGE):$(DOCKER_TAG) \
+		./ebpf-demo security
+
+# Run advanced monitoring with HTTP API
+advanced: check-docker
+	@if ! docker image inspect $(DOCKER_IMAGE):$(DOCKER_TAG) >/dev/null 2>&1; then \
+		echo "$(YELLOW)📦 Building Docker image first...$(NC)"; \
+		$(MAKE) build; \
+	fi
+	@echo "$(BLUE)🚀 Starting advanced eBPF monitoring with HTTP API...$(NC)"
+	@docker run --rm -it --name ebpf-advanced \
+		--privileged \
+		--net=$(NETWORK_MODE) \
+		-v /sys/kernel/debug:/sys/kernel/debug:ro \
+		-v /lib/modules:/lib/modules:ro \
+		-v /usr/src:/usr/src:ro \
+		-p 8080:8080 \
+		$(DOCKER_IMAGE):$(DOCKER_TAG) \
+		./advanced-ebpf
+
+# Run full demo with traffic generation
+demo: check-docker
+	@if ! docker image inspect $(DOCKER_IMAGE):$(DOCKER_TAG) >/dev/null 2>&1; then \
+		echo "$(YELLOW)📦 Building Docker image first...$(NC)"; \
+		$(MAKE) build; \
+	fi
+	@echo "$(BLUE)🚀 Starting full eBPF demo with traffic generation...$(NC)"
+	@docker-compose -f $(COMPOSE_FILE) --profile demo up
+	@echo "$(GREEN)✅ Demo started with traffic generation$(NC)"
+	@echo "$(BLUE)📊 API available at: http://localhost:8080/metrics$(NC)"
+
+# Stop all services
+stop:
+	@echo "$(BLUE)🛑 Stopping all eBPF services...$(NC)"
+	@docker-compose -f $(COMPOSE_FILE) down
+	@docker stop ebpf-monitor ebpf-security ebpf-advanced 2>/dev/null || true
+	@docker rm ebpf-monitor ebpf-security ebpf-advanced 2>/dev/null || true
+	@echo "$(GREEN)✅ All services stopped$(NC)"
+
+# Show logs
+logs:
+	@if [ -n "$(SERVICE)" ]; then \
+		echo "$(BLUE)📋 Showing logs for $(SERVICE)...$(NC)"; \
+		docker-compose -f $(COMPOSE_FILE) logs -f $(SERVICE); \
+	else \
+		echo "$(BLUE)📋 Showing logs for all services...$(NC)"; \
+		docker-compose -f $(COMPOSE_FILE) logs -f; \
+	fi
+
+# Show service status
+status:
+	@echo "$(BLUE)📊 eBPF Docker Service Status$(NC)"
+	@echo "============================="
+	@echo ""
+	@echo "$(YELLOW)Images:$(NC)"
+	@docker images --filter "reference=$(DOCKER_IMAGE)" --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}" 2>/dev/null || echo "No images found"
+	@echo ""
+	@echo "$(YELLOW)Running Containers:$(NC)"
+	@docker ps --filter "name=ebpf" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "No containers running"
+	@echo ""
+	@echo "$(YELLOW)Compose Services:$(NC)"
+	@docker-compose -f $(COMPOSE_FILE) ps 2>/dev/null || echo "No compose services"
+
+# Clean Docker resources
+clean: stop
+	@echo "$(BLUE)🧹 Cleaning Docker resources...$(NC)"
+	@docker-compose -f $(COMPOSE_FILE) down -v
+	@docker rmi $(DOCKER_IMAGE):builder $(DOCKER_IMAGE):$(DOCKER_TAG) 2>/dev/null || true
+	@docker system prune -f
+	@echo "$(GREEN)✅ Docker clean complete$(NC)"
+
+# Quick commands for common operations
+quick-demo: build demo
+	@echo "$(GREEN)✅ Quick demo started$(NC)"
+
+quick-monitor: build monitor
+	@echo "$(GREEN)✅ Quick monitoring started$(NC)"
+
+quick-advanced: build advanced
+	@echo "$(GREEN)✅ Quick advanced monitoring started$(NC)"
+
+# Development commands
+dev-build: build-builder
+	@echo "$(GREEN)✅ Development build complete$(NC)"
+
+dev-run: build-runtime
+	@echo "$(GREEN)✅ Development runtime ready$(NC)"
+
+# Test commands
+test-build: clean build
+	@echo "$(GREEN)✅ Build test passed$(NC)"
+
+test-run: build run
+	@echo "$(GREEN)✅ Run test passed$(NC)"
+
+test-all: test-build test-run
+	@echo "$(GREEN)✅ All tests passed$(NC)"
+
+# Batch operations for technical talk
+talk-setup: build
+	@echo "$(GREEN)✅ Talk setup complete$(NC)"
+
+talk-demo: demo
+	@echo "$(GREEN)✅ Talk demo running$(NC)"
+
+talk-monitor: monitor
+	@echo "$(GREEN)✅ Talk monitoring running$(NC)"
+
+talk-cleanup: clean
+	@echo "$(GREEN)✅ Talk cleanup complete$(NC)"
+
+# Health check
+health:
+	@echo "$(BLUE)🏥 Checking Docker eBPF health...$(NC)"
+	@$(MAKE) check-docker
+	@$(MAKE) status
+	@if docker run --rm --name health-check $(DOCKER_IMAGE):$(DOCKER_TAG) ./ebpf-demo --help >/dev/null 2>&1; then \
+		echo "$(GREEN)✅ Docker image health check passed$(NC)"; \
+	else \
+		echo "$(RED)❌ Docker image health check failed$(NC)"; \
+	fi
+
+# Network check (for eBPF requirements)
+check-network:
+	@echo "$(BLUE)🌐 Checking network requirements for eBPF...$(NC)"
+	@if docker run --rm --privileged --net=$(NETWORK_MODE) $(DOCKER_IMAGE):$(DOCKER_TAG) ip link show >/dev/null 2>&1; then \
+		echo "$(GREEN)✅ Network access OK$(NC)"; \
+	else \
+		echo "$(RED)❌ Network access failed - eBPF may not work$(NC)"; \
+	fi
+	@if docker run --rm --privileged $(DOCKER_IMAGE):$(DOCKER_TAG) ls /sys/kernel/debug >/dev/null 2>&1; then \
+		echo "$(GREEN)✅ Debug filesystem access OK$(NC)"; \
+	else \
+		echo "$(YELLOW)⚠️  Debug filesystem access limited$(NC)"; \
+	fi
+
+# Full system check
+check-all: check-docker health check-network
+	@echo "$(GREEN)✅ All system checks complete$(NC)"
+
+.DEFAULT_GOAL := help
