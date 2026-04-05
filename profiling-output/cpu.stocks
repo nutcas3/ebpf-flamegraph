@@ -1,0 +1,9 @@
+main.collectMetrics;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+main.collectMetrics;main.getTopIPs;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+main.collectMetrics;main.getSecurityMetrics;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+main.startMetricsServer;main.main;runtime.main
+main.getTopIPs;main.collectMetrics;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+main.getSecurityMetrics;main.collectMetrics;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main
+main.attachXDP;main.main;runtime.main
+main.attachKprobes;main.main;runtime.main
+main.getNetworkInterface;main.attachXDP;main.main;runtime.main

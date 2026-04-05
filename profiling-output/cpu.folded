@@ -1,0 +1,7 @@
+main.collectMetrics;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main 10
+main.getTopIPs;main.collectMetrics;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main 5
+main.getSecurityMetrics;main.collectMetrics;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main 5
+main.startMetricsServer;main.main;runtime.main 3
+main.attachXDP;main.main;runtime.main 2
+main.attachKprobes;main.main;runtime.main 2
+main.getNetworkInterface;main.attachXDP;main.main;runtime.main 1

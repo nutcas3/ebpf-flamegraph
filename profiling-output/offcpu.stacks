@@ -1,0 +1,4 @@
+main.collectMetrics;runtime.mallocgc;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main 8
+main.collectMetrics;runtime.mallocgc;main.getTopIPs;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main 4
+main.collectMetrics;runtime.mallocgc;main.getSecurityMetrics;main.displayAdvancedMetrics;main.startMetricsCollection;runtime.main 4
+main.startMetricsServer;runtime.mallocgc;main.main;runtime.main 2
