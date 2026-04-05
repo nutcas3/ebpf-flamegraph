@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  # eBPF build service - generates real eBPF bindings
+  ebpf-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile.ebpf
+      target: ebpf-builder
+    volumes:
+      - ./build-output:/app/output
+    environment:
+      - GOOS=linux
+      - GOARCH=amd64
+      - CGO_ENABLED=0
+    command: |
+      sh -c "
+        echo '🔨 Building eBPF programs in container...'
+        go generate ./...
+        echo '✅ eBPF bindings generated'
+        go build -o ebpf-demo .
+        cd cmd/advanced && go build -o advanced-ebpf .
+        echo '✅ Applications built'
+        ls -la *.o bpf_*.go *.elf 2>/dev/null || echo 'No eBPF objects found'
+        cp -r * /app/output/ 2>/dev/null || true
+      "
+
+  # eBPF monitor service - requires privileged access
+  ebpf-monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile.ebpf
+      target: ebpf-runtime
+    privileged: true  # Required for eBPF
+    network_mode: host  # Required for XDP programs
+    volumes:
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+      - /lib/modules:/lib/modules:ro
+      - /usr/src:/usr/src:ro
+    environment:
+      - MODE=monitor
+    command: ["./ebpf-demo", "monitor"]
+    restart: unless-stopped
+    depends_on:
+      - ebpf-builder
+    profiles:
+      - monitor
+
+  # eBPF security service - requires privileged access  
+  ebpf-security:
+    build:
+      context: .
+      dockerfile: Dockerfile.ebpf
+      target: ebpf-runtime
+    privileged: true  # Required for eBPF
+    network_mode: host  # Required for XDP programs
+    volumes:
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+      - /lib/modules:/lib/modules:ro
+      - /usr/src:/usr/src:ro
+    environment:
+      - MODE=security
+    command: ["./ebpf-demo", "security"]
+    restart: unless-stopped
+    depends_on:
+      - ebpf-builder
+    profiles:
+      - security
+
+  # Advanced eBPF service with HTTP API
+  ebpf-advanced:
+    build:
+      context: .
+      dockerfile: Dockerfile.ebpf
+      target: ebpf-runtime
+    privileged: true  # Required for eBPF
+    network_mode: host  # Required for XDP programs
+    volumes:
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+      - /lib/modules:/lib/modules:ro
+      - /usr/src:/usr/src:ro
+    environment:
+      - MODE=advanced
+    command: ["./cmd/advanced/advanced-ebpf"]
+    restart: unless-stopped
+    depends_on:
+      - ebpf-builder
+    profiles:
+      - advanced
+
+  # Web server for generating traffic
+  web-server:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    profiles:
+      - demo
+
+  # Traffic generator for testing
+  traffic-generator:
+    image: alpine:latest
+    command: |
+      sh -c "
+        apk add --no-cache curl iperf3
+        while true; do
+          echo '🌊 Generating traffic...'
+          curl -s http://web-server/ > /dev/null 2>&1 || true
+          ping -c 1 8.8.8.8 > /dev/null 2>&1 || true
+          sleep 2
+        done
+      "
+    restart: unless-stopped
+    depends_on:
+      - web-server
+    profiles:
+      - demo

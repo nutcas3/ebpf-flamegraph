@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  ebpf-monitor:
+    build: .
+    privileged: true  # Required for eBPF
+    network_mode: host  # Required for XDP
+    volumes:
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+      - /lib/modules:/lib/modules:ro
+    environment:
+      - MODE=monitor
+    command: ["monitor"]
+    restart: unless-stopped
+    
+  ebpf-security:
+    build: .
+    privileged: true  # Required for eBPF
+    network_mode: host  # Required for XDP
+    volumes:
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+      - /lib/modules:/lib/modules:ro
+    environment:
+      - MODE=security
+    command: ["security"]
+    restart: unless-stopped
+    profiles:
+      - security  # Only start with --profile security
+
+  # Example service to generate traffic for monitoring
+  web-server:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    profiles:
+      - demo  # Only start with --profile demo
