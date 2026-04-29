@@ -4,7 +4,7 @@
 
 ---
 
-## 📋 **Talk Overview**
+## **Talk Overview**
 
 ### **Target Audience**
 - Senior Software Engineers
@@ -28,7 +28,7 @@
 
 ## **Complete Makefile-Based Setup (Works Everywhere)**
 
-### **🚀 Quick Start - One Command Setup**
+### **Quick Start - One Command Setup**
 ```bash
 # Clone and run complete demo
 git clone https://github.com/nutcas3/ebpf-flamegraph.git
@@ -44,7 +44,7 @@ make -f Makefile.profiling profile-all
 make -f Makefile.profiling open
 ```
 
-### **📋 Available Makefiles**
+### ** Available Makefiles**
 ```bash
 # Main operations (unified interface)
 make help                    # Show all commands
