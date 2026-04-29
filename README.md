@@ -145,6 +145,44 @@ make -f Makefile.profiling open
 
 ---
 
+## Profiling Results Showcase
+
+The `profiling-output/` folder contains real performance analysis results:
+
+#### CPU Flame Graph (`profiling-output/cpu-flamegraph.svg`)
+- **Size**: 18,774 bytes
+- **Purpose**: Shows where CPU time is spent in the application
+- **Insights**: Identifies hot functions and performance bottlenecks
+- **Usage**: `open profiling-output/cpu-flamegraph.svg`
+
+#### Memory Flame Graph (`profiling-output/memory-flamegraph.svg`)
+- **Size**: 16,444 bytes  
+- **Purpose**: Analyzes memory allocation patterns
+- **Insights**: Reveals memory hotspots and allocation bottlenecks
+- **Usage**: `open profiling-output/memory-flamegraph.svg`
+
+#### Off-CPU Flame Graph (`profiling-output/offcpu-flamegraph.svg`)
+- **Size**: 16,879 bytes
+- **Purpose**: Shows where time is wasted on blocking operations
+- **Insights**: Identifies I/O bottlenecks and blocking calls
+- **Usage**: `open profiling-output/offcpu-flamegraph.svg`
+
+### Quick Profiling Commands
+```bash
+# View all available flame graphs
+ls -la profiling-output/*.svg
+
+# Open specific flame graph
+open profiling-output/cpu-flamegraph.svg    # CPU analysis
+open profiling-output/memory-flamegraph.svg  # Memory analysis  
+open profiling-output/offcpu-flamegraph.svg # Blocking analysis
+
+# Generate new profiles (if needed)
+make -f Makefile.profiling profile-all
+```
+
+---
+
 ## Project Structure
 
 ```
